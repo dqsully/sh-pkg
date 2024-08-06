@@ -1,0 +1,82 @@
+#!/bin/bash
+
+canpick="true"
+
+if [[ ! -t 0 ]]; then
+    canpick="false"
+elif [[ "$1" == "-f" ]]; then
+    canpick="false"
+    shift
+fi
+
+search="$1"
+
+possible_dirs=()
+
+while IFS="" read -r projline || [ -n "$projline" ]; do
+    IFS=":" read -r -a projparts <<< "$projline"
+
+    if [[ "${#projparts[@]}" -ne 3 ]]; then
+        echo "Skipping project line '$projline', expected 3 ':'-separated segments" >&2
+        continue
+    fi
+
+    # TODO: calculate depth offset by counting slashes in path, excluding '^[.]/' and '^/'
+
+    searchdir="${projparts[0]}"
+    if [[ "$search" == "." ]]; then
+        searchdir="$PWD"
+    else
+        searchdir="$HOME/$searchdir"
+    fi
+
+    readarray -t projoptions -d '' < <(find "$searchdir" -maxdepth ${projparts[2]} -mindepth ${projparts[1]} -type d -a -path "**/$search" | sort)
+    possible_dirs=("${possible_dirs[@]}" "${projoptions[@]}")
+done <"$HOME/.projects"
+
+declare -A visited
+deduped_dirs=()
+
+for dir in "${possible_dirs[@]}"; do
+    cleandir="$dir"
+    # Change /path/to/cwd/some/dir to ./some/dir if $PWD isn't $HOME
+    if [[ "$PWD" != "$HOME" ]] && [[ "$cleandir" = $PWD/* ]]; then
+        cleandir=".${cleandir##$PWD}"
+    fi
+    # Change /home/myuser/some/dir to ~/some/dir
+    if [[ "$cleandir" = $HOME/* ]]; then
+        cleandir="~${cleandir##$HOME}"
+    fi
+
+    if [[ -z "${visited[$cleandir]}" ]]; then
+        visited["$cleandir"]="$dir"
+        deduped_dirs+=("$cleandir")
+    fi
+done
+
+if [[ "${#deduped_dirs[@]}" -eq 0 ]]; then
+    echo "No project dirs matched search '$search', maybe edit '~/.projects' file to add a project dir?" >&2
+    exit 1
+elif [[ "${#deduped_dirs[@]}" -eq 1 ]] || [[ "$canpick" == "false" ]]; then
+    # there's only one option, or stdin is not a TTY so we couldn't pick anyways
+    echo "${visited[${deduped_dirs[0]}]}"
+    exit 0
+fi
+
+while true; do
+    END="${#deduped_dirs[@]}"
+    # multiple options, list them and let user pick
+    for ((i=0;i<END;i++)); do
+        echo "$i: ${deduped_dirs[i]}" >&2
+    done
+
+    index="$(read -r -p "Which dir? ")"
+
+    if [[ -n "${deduped_dirs[$index]}" ]]; then
+        break
+    fi
+
+    echo "Not an option: $index, try again?" >&2
+done
+
+echo "${visited[${deduped_dirs[$index]}]}"

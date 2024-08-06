@@ -1,0 +1,3 @@
+Adds an executable `ci` which will call code-insiders with Wayland-specific
+settings, and using the `fp` executable from the `projects` package to auto-find
+the given directory.

@@ -1,0 +1,619 @@
+#!/bin/bash
+
+SH_PKG_DIR="$HOME/.sh-pkg"
+DB_DIR="$SH_PKG_DIR/db"
+HOOKS_DIR="$SH_PKG_DIR/hook"
+INSTALL_HOOKS_DIR="$HOOKS_DIR/install"
+SOURCES_DIR="$SH_PKG_DIR/sources"
+REMOTE_SOURCES_DIR="$SH_PKG_DIR/remote_sources"
+
+mkdir -p "$SH_PKG_DIR" "$DB_DIR" "$HOOKS_DIR" "$INSTALL_HOOKS_DIR" "$SOURCES_DIR" "$REMOTE_SOURCES_DIR"
+
+PACKAGES_DB="sh-pkg.packages"
+
+# Reset varaible used in subshells
+_PARENT_SOURCE=""
+_DEPENDENCY_OF=""
+
+sh_pkg_db_delete_help() {
+    cat <<EOF
+sh-pkg db delete <database>
+
+Delete a database file
+EOF
+}
+
+sh_pkg_db_delete() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_delete_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_delete_help
+        return 0
+    fi
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    rm "$DB_DIR/$1"
+
+    exec 4<&-
+}
+
+sh_pkg_db_get_help() {
+    cat <<EOF
+sh-pkg db get <database>
+
+Print the contents of a database file
+EOF
+}
+
+sh_pkg_db_get() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_get_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_get_help
+        return 0
+    fi
+
+    if [[ ! -f "$1" ]]; then
+        return 0
+    fi
+
+    # Lock database file for reads
+    exec 4<"$DB_DIR/$1"
+    flock -s 4
+
+    cat "$DB_DIR/$1"
+
+    exec 4<&-
+}
+
+sh_pkg_db_has_help() {
+    cat <<EOF >&2
+sh-pkg db has <database> <value>
+
+Returns a 0 exit code if the database file has the given value
+EOF
+}
+
+sh_pkg_db_has() {
+    # TODO: some kind of indexed set implementation?
+
+    if [[ "$#" -lt 2 ]]; then
+        sh_pkg_db_has_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_has_help
+        return 0
+    fi
+
+    if [[ ! -f "$DB_DIR/$1" ]]; then
+        return 1
+    fi
+
+    # Lock database file for reads
+    exec 4<"$DB_DIR/$1"
+    flock -s 4
+
+    # TODO: more efficient implementation?
+    while IFS="" read -r db_line || [ -n "$db_line" ]; do
+        if [[ "$db_line" == "$2" ]]; then
+            exec 4<&-
+            return 0
+        fi
+    done <"$DB_DIR/$1"
+
+    exec 4<&-
+    return 1
+}
+
+sh_pkg_db_list_help() {
+    cat <<EOF >&2
+sh-pkg db list
+
+List database files
+EOF
+}
+
+sh_pkg_db_list() {
+    if [[ "$1" == "--help" ]]; then
+        sh_pkg_db_list_help
+        return 0
+    fi
+
+    find "$DB_DIR" -type f -a ! -name '*.' -printf '%P\n' | sort
+}
+
+sh_pkg_db_edit_help() {
+    cat <<EOF >&2
+sh-pkg db edit <database>
+
+Edit a database file using the text editor set by the environment variable
+\$EDITOR, or else nano by default.
+EOF
+}
+
+sh_pkg_db_edit() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_edit_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_edit_help
+        return 0
+    fi
+
+    # If database doesn't exist, create it
+    if [[ ! -f "$DB_DIR/$1" ]]; then
+        touch "$DB_DIR/$1"
+    fi
+
+    editor="${EDITOR:-nano}"
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    "$editor" "$DB_DIR/$1"
+
+    exec 4<&-
+}
+
+sh_pkg_db_pop_help() {
+    cat <<EOF >&2
+sh-pkg db pop <database>
+
+Remove a line from the end of the database file
+EOF
+}
+
+sh_pkg_db_pop() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_pop_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_pop_help
+        return 0
+    fi
+
+    # If database doesn't exist, pop does nothing
+    if [[ ! -f "$DB_DIR/$1" ]]; then
+        return 0
+    fi
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    cp "$DB_DIR/$1" "$DB_DIR/$1."
+    head -n-1 "$DB_DIR/$1." > "$DB_DIR/$1"
+    rm "$DB_DIR/$1."
+
+    exec 4<&-
+}
+
+sh_pkg_db_push_help() {
+    cat <<EOF >&2
+sh-pkg db push <database> <value>
+
+Add a line to the end of the database file
+EOF
+}
+
+sh_pkg_db_push() {
+    if [[ "$#" -lt 2 ]]; then
+        sh_pkg_db_push_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_push_help
+        return 0
+    fi
+
+    # If database doesn't exist, create it
+    if [[ ! -f "$DB_DIR/$1" ]]; then
+        touch "$DB_DIR/$1"
+    fi
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    echo "$2" >>"$DB_DIR/$1"
+
+    exec 4<&-
+}
+
+sh_pkg_db_shift_help() {
+    cat <<EOF >&2
+sh-pkg db shift <database>
+
+Remove a line from the beginning of the database
+EOF
+}
+
+sh_pkg_db_shift() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_shift_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_shift_help
+        return 0
+    fi
+
+    # If database doesn't exist, shift does nothing
+    if [[ ! -f "$DB_DIR/$1" ]]; then
+        return 0
+    fi
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    cp "$DB_DIR/$1" "$DB_DIR/$1."
+    tail -n-1 "$DB_DIR/$1." > "$DB_DIR/$1"
+    rm "$DB_DIR/$1."
+
+    exec 4<&-
+}
+
+sh_pkg_db_unshift_help() {
+    cat <<EOF >&2
+sh-pkg db unshift <database> <value>
+
+Add a line to the beginning of the database
+EOF
+}
+
+sh_pkg_db_unshift() {
+    if [[ "$#" -lt 2 ]]; then
+        sh_pkg_db_unshift_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_unshift_help
+        return 0
+    fi
+
+    # If database doesn't exist, shift does nothing
+    if [[ ! -f "$DB_DIR/$1" ]]; then
+        return 0
+    fi
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    cp "$DB_DIR/$1" "$DB_DIR/$1."
+    echo "$1" > "$DB_DIR/$1"
+    cat "$DB_DIR/$1." > "$DB_DIR/$1"
+    rm "$DB_DIR/$1."
+
+    exec 4<&-
+}
+
+sh_pkg_db_help() {
+    cat <<EOF >&2
+sh-pkg db <command> [flags]
+
+Commands:
+    delete      delete a database
+    get         print the contents of a database file
+    has         returns a 0 exit code if the database file has the given line
+    list        list database files
+    edit        edit a database file with a text editor
+    help        print this output
+    pop         remove a line from the end of a database file
+    push        add a line to the end of the database file
+    shift       remove a line from the start of a database file
+    unshift     add a line to the start of a database file
+EOF
+}
+
+sh_pkg_db() {
+    case "$1" in
+        delete|get|has|list|edit|help|pop|push|shift|unshift) sh_pkg_db_"$1" "${@:2}" ;;
+        --help) sh_pkg_db_help ;;
+        *) sh_pkg_db_help && return 1 ;;
+    esac
+}
+
+sh_pkg_source_add_help() {
+    cat <<EOF >&2
+sh-pkg source add <name> [repo] <path> [git clone args]
+
+Adds a package source. If a Git repository is defined, will use git to download
+the repository and use a subpath of the repository. Otherwise the path is
+expected to resolve from the current working directory.
+EOF
+}
+
+sh_pkg_source_add() {
+    if [[ "$#" -lt 2 ]]; then
+        sh_pkg_source_add_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_source_add_help
+        return 0
+    fi
+
+    name="$1"
+
+    if [[ "$#" -eq 2 ]]; then
+        path="$2"
+
+        if [[ ! -d "$path" ]]; then
+            echo "Error: local path must be a directory" >&2
+            return 1
+        fi
+
+        real_path="$(realpath -L "$path")"
+        ln -s "$real_path" "$SOURCES_DIR/$name"
+
+        echo "Added source $name pointing to local path $real_path"
+    else
+        repo="$2"
+        path="${3:-.}"
+
+        mkdir -p "$REMOTE_SOURCES_DIR/$name"
+        git clone "${@:4}" -- "$repo" "$REMOTE_SOURCES_DIR/$name"
+
+        if [[ ! -d "$REMOTE_SOURCES_DIR/$name/$path" ]]; then
+            echo "Error: git subpath must be a directory" >&2
+            rm -rf "$REMOTE_SOURCES_DIR/${name:?}" # TODO: let user reconfigure instead?
+            return 1
+        fi
+
+        ln -s "$REMOTE_SOURCES_DIR/$name/$path" "$SOURCES_DIR/$name"
+
+        echo "Added source $name pointing to remote repository $repo subdir $path"
+    fi
+}
+
+sh_pkg_source_list_help() {
+    cat <<EOF >&2
+sh-pkg source list
+
+Lists configured package sources
+EOF
+}
+
+sh_pkg_source_list() {
+    if [[ "$1" == "--help" ]]; then
+        sh_pkg_source_list_help
+        return 0
+    fi
+
+    while IFS="" read -r source || [ -n "$source" ]; do
+        real_source="$(readlink "$SOURCES_DIR/$source")"
+
+        if [[ "$real_source" = "$REMOTE_SOURCES_DIR"/* ]]; then
+            echo "$source => $( (cd "$real_source" && git config --get remote.origin.url)) .${real_source#"$REMOTE_SOURCES_DIR/$source"}"
+        else
+            echo "$source => $real_source"
+        fi
+    done < <(ls "$SOURCES_DIR")
+}
+
+sh_pkg_source_remove_help() {
+    cat <<EOF >&2
+sh-pkg source remove <name>
+
+Removes a package source.
+EOF
+}
+
+sh_pkg_source_remove() {
+    echo "Error: unimplemented" >&2
+    return 1
+
+    # TODO: uninstall packages from source
+
+    # name="$1"
+    # rm -rf "$REMOTE_SOURCES_DIR/${name:?}" "$SOURCES_DIR/${name:?}"
+}
+
+sh_pkg_source_help() {
+    cat <<EOF >&2
+sh-pkg source <command> [flags]
+
+Commands:
+    add         Add a new package sources
+    help        print this output
+    list        List sources
+    remove      Remove a package sources
+EOF
+}
+
+sh_pkg_source() {
+    case "$1" in
+        add|help|list|remove) sh_pkg_source_"$1" "${@:2}" ;;
+        --help) sh_pkg_source_help ;;
+        *) sh_pkg_source_help && return 1 ;;
+    esac
+}
+
+sh_pkg_install_help() {
+    cat <<EOF >&2
+sh-pkg install [source/package ...]
+
+Install one or more packages from configured sources
+EOF
+}
+
+sh_pkg_install() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_install_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_install_help
+        return 0
+    fi
+
+    while [[ "$#" -gt 0 ]]; do
+        source="${1%/*}"
+        package="${1#*/}"
+        shift
+
+        # If installed as a dependency, ./foo maps to the `foo` package of the same
+        # source as the dependent package
+        if [[ "$source" == "." && -n "$_PARENT_SOURCE" ]]; then
+            source="$_PARENT_SOURCE"
+        fi
+
+        # Require source and package to be non empty
+        if [[ -z "$source" || -z "$package" ]]; then
+            # TODO: add more validation like this throughout, maybe in helper functions?
+            echo "Error: empty source or package name" >&2
+            return 1
+        fi
+
+        # Ensure source is configured
+        if [[ ! -d "$SOURCES_DIR/$source" ]]; then
+            echo "Error: source not configured" >&2
+            return 1
+        fi
+
+        package_dir="$SOURCES_DIR/$source/$package"
+
+        # Ensure package exists in source
+        if [[ ! -d "$package_dir" ]]; then
+            echo "Error: package is not a directory" >&2
+            return 1
+        fi
+
+        if sh_pkg_db_has "$PACKAGES_DB" "$source/$package"; then
+            already_installed=true
+        else
+            already_installed=""
+            sh_pkg_db_push "$PACKAGES_DB" "$source/$package" # add to list of installed packages
+            sh_pkg_db_push "$PACKAGES_DB.$source" "$package" # add package to list of installed packages from a given source
+        fi
+
+        # Install package dependencies, if any
+        if [[ -f "$package_dir/.pkg.deps" ]]; then
+            while IFS="" read -r dependency || [ -n "$dependency" ]; do
+                sh_pkg_db_push "$PACKAGES_DB.$source.$package.deps" "$dependency" # add to list of installed dependencies for package
+
+                if ! (_PARENT_SOURCE="$source" _DEPENDENCY_OF="$source/$package" sh_pkg_install "$dependency"); then
+                    sh_pkg_db_pop "$PACKAGES_DB.$source.$package.deps" # remove from list of installed dependencies for package
+                    return 1
+                fi
+            done <"$package_dir/.pkg.deps"
+        fi
+
+        # Print package info
+        if [[ -f "$package_dir/.pkg.info" ]]; then
+            echo "Package info:"
+            echo
+            cat "$package_dir/.pkg.info"
+            echo
+        fi
+
+        # Make sure none of the files in the package already exist
+        while IFS="" read -r file_to_copy || [ -n "$file_to_copy" ]; do
+            dest_path="$HOME/${file_to_copy#"$package_dir"/}"
+
+            if [[ -e "$dest_path" && -z "$already_installed" ]] && ! sh_pkg_db_has "$PACKAGES_DB.$source.$package" "$dest_path"; then
+                echo "Error: $dest_path already exists, can't install/update $package"
+                return 1
+            fi
+        done < <(find "$package_dir" ! -path "$package_dir/.pkg*" -a -type f | sort)
+
+        # Run package install script if it exists
+        if [[ -f "$package_dir/.pkg.install.sh" ]]; then
+            "$package_dir/.pkg.install.sh"
+        fi
+
+        declare -A installed_files
+
+        if [ -z "$already_installed" ]; then
+            echo "Installing $package from $source..."
+        else
+            echo "Updating $package from $source..."
+        fi
+
+        # Install files from package
+        while IFS="" read -r file_to_copy || [ -n "$file_to_copy" ]; do
+            dest_path="$HOME/${file_to_copy#"$package_dir"/}"
+            sh_pkg_db_has "$PACKAGES_DB.$source.$package" "$dest_path" || sh_pkg_db_push "$PACKAGES_DB.$source.$package" "$dest_path"
+            installed_files["$dest_path"]="true"
+            mkdir -p "$(dirname "$dest_path")"
+            echo "    $dest_path"
+
+            if [[ "$dest_path" == "$HOME/bin/sh-pkg" ]]; then
+                # Special logic to update sh-pkg executable
+                cp "$file_to_copy" "$dest_path.tmp"
+                mv "$dest_path.tmp" "$dest_path"
+            else
+                cp "$file_to_copy" "$dest_path"
+            fi
+        done < <(find "$package_dir" ! -path "$package_dir/.pkg*" -a -type f | sort)
+
+        # Remove any old files not in the package anymore
+        while IFS="" read -r installed_file || [ -n "$installed_file" ]; do
+            if [[ -z ${installed_files["$installed_file"]} ]]; then
+                rm "$installed_file"
+                # TODO: clean up empty parent dirs
+            fi
+        done < <(sh_pkg_db_get "$PACKAGES_DB.$source.$package")
+
+        # Call all install hooks if we are the 'root' install
+        if [[ -z "$_PARENT_SOURCE" ]]; then
+            while IFS="" read -r hook || [ -n "$hook" ]; do
+                "$hook"
+            done < <(find "$INSTALL_HOOKS_DIR" -type f | sort)
+        fi
+
+        echo
+    done
+}
+
+sh_pkg_update_help() {
+    cat <<EOF >&2
+sh-pkg update [source/package ...]
+
+Update one or more packages from configured sources
+EOF
+}
+
+sh_pkg_update() {
+    echo "Error: unimplemented" >&2
+    return 1
+}
+
+sh_pkg_uninstall_help() {
+    cat <<EOF >&2
+sh-pkg uninstall [source/package ...]
+
+Uninstall one or more packages
+EOF
+}
+
+sh_pkg_uninstall() {
+    echo "Error: unimplemtentd" >&2
+    return 1
+}
+
+sh_pkg_help() {
+    cat <<EOF >&2
+sh-pkg <command> [flags]
+
+Commands:
+    db          manage sh-pkg data stores
+    help        print this output
+    install     install a package
+    source      manage sh-pkg sources
+    update      update one or more packages
+    uninstall   uninstall a package
+
+Available hooks:
+    ~/.sh-pkg/hook/install/*    called after a package is installed or uninstalled
+EOF
+}
+
+case "$1" in
+    db|help|install|source|uninstall) sh_pkg_"$1" "${@:2}" ;;
+    --help) sh_pkg_help ;;
+    *) sh_pkg_help && exit 1 ;;
+esac

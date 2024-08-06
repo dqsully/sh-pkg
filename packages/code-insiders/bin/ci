@@ -1,0 +1,15 @@
+#!/bin/bash
+
+ARGS=()
+
+if [[ "$1" == "-n" ]] || [[ "${#@}" -eq 0 ]]; then
+  ARGS=("$@")
+elif [[ "$1" = ./* ]] || [[ "$1" == "." ]]; then
+  ARGS=("--" "$@")
+else
+  dir="$(fp "$1")"
+  shift
+  ARGS=("--" "$dir" "$@")
+fi
+
+exec code-insiders --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --unity-launch "${ARGS[@]}"
