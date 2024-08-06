@@ -553,6 +553,7 @@ sh_pkg_install() {
         # Remove any old files not in the package anymore
         while IFS="" read -r installed_file || [ -n "$installed_file" ]; do
             if [[ -z ${installed_files["$installed_file"]} ]]; then
+                echo "    $installed_file (deleted)"
                 rm "$installed_file"
                 # TODO: clean up empty parent dirs
             fi
