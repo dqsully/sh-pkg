@@ -15,6 +15,32 @@ PACKAGES_DB="sh-pkg.packages"
 _PARENT_SOURCE=""
 _DEPENDENCY_OF=""
 
+sh_pkg_db_clear_help() {
+    cat <<EOF
+sh-pkg db clear <database>
+
+Clear all entries from a database file
+EOF
+}
+
+sh_pkg_db_clear() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_clear_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_clear_help
+        return 0
+    fi
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    truncate -s0 "$DB_DIR/$1"
+
+    exec 4<&-
+}
+
 sh_pkg_db_delete_help() {
     cat <<EOF
 sh-pkg db delete <database>
@@ -297,6 +323,7 @@ sh_pkg_db_help() {
 sh-pkg db <command> [flags]
 
 Commands:
+    clear       remove all entries from a database
     delete      delete a database
     get         print the contents of a database file
     has         returns a 0 exit code if the database file has the given line
@@ -312,7 +339,7 @@ EOF
 
 sh_pkg_db() {
     case "$1" in
-        delete|get|has|list|edit|help|pop|push|shift|unshift) sh_pkg_db_"$1" "${@:2}" ;;
+        clear|delete|get|has|list|edit|help|pop|push|shift|unshift) sh_pkg_db_"$1" "${@:2}" ;;
         --help) sh_pkg_db_help ;;
         *) sh_pkg_db_help && return 1 ;;
     esac
@@ -490,13 +517,15 @@ sh_pkg_install() {
             sh_pkg_db_push "$PACKAGES_DB.$source" "$package" # add package to list of installed packages from a given source
         fi
 
+        package_db="$PACKAGES_DB.$source.$package"
+
         # Install package dependencies, if any
         if [[ -f "$package_dir/.pkg.deps" ]]; then
             while IFS="" read -r dependency || [ -n "$dependency" ]; do
-                sh_pkg_db_push "$PACKAGES_DB.$source.$package.deps" "$dependency" # add to list of installed dependencies for package
+                sh_pkg_db_push "$package_db.deps" "$dependency" # add to list of installed dependencies for package
 
                 if ! (_PARENT_SOURCE="$source" _DEPENDENCY_OF="$source/$package" sh_pkg_install "$dependency"); then
-                    sh_pkg_db_pop "$PACKAGES_DB.$source.$package.deps" # remove from list of installed dependencies for package
+                    sh_pkg_db_pop "$package_db.deps" # remove from list of installed dependencies for package
                     return 1
                 fi
             done <"$package_dir/.pkg.deps"
@@ -510,11 +539,16 @@ sh_pkg_install() {
             echo
         fi
 
+        # Run package preinstall script if it exists
+        if [[ -z "$already_installed" && -f "$package_dir/.pkg.preinstall.sh" ]]; then
+            "$package_dir/.pkg.preinstall.sh"
+        fi
+
         # Make sure none of the files in the package already exist
         while IFS="" read -r file_to_copy || [ -n "$file_to_copy" ]; do
             dest_path="$HOME/${file_to_copy#"$package_dir"/}"
 
-            if [[ -e "$dest_path" && -z "$already_installed" ]] && ! sh_pkg_db_has "$PACKAGES_DB.$source.$package" "$dest_path"; then
+            if [[ -e "$dest_path" && -z "$already_installed" ]] && ! sh_pkg_db_has "$package_db" "$dest_path"; then
                 echo "Error: $dest_path already exists, can't install/update $package"
                 return 1
             fi
@@ -536,7 +570,7 @@ sh_pkg_install() {
         # Install files from package
         while IFS="" read -r file_to_copy || [ -n "$file_to_copy" ]; do
             dest_path="$HOME/${file_to_copy#"$package_dir"/}"
-            sh_pkg_db_has "$PACKAGES_DB.$source.$package" "$dest_path" || sh_pkg_db_push "$PACKAGES_DB.$source.$package" "$dest_path"
+            sh_pkg_db_has "$package_db" "$dest_path" || sh_pkg_db_push "$package_db" "$dest_path"
             installed_files["$dest_path"]="true"
             mkdir -p "$(dirname "$dest_path")"
             echo "    $dest_path"
@@ -551,13 +585,19 @@ sh_pkg_install() {
         done < <(find "$package_dir" ! -path "$package_dir/.pkg*" -a -type f | sort)
 
         # Remove any old files not in the package anymore
-        while IFS="" read -r installed_file || [ -n "$installed_file" ]; do
-            if [[ -z ${installed_files["$installed_file"]} ]]; then
-                echo "    $installed_file (deleted)"
-                rm "$installed_file"
+        while IFS="" read -r existing_file || [ -n "$existing_file" ]; do
+            if [[ "${installed_files["$existing_file"]}" != "true" ]]; then
+                echo "    $existing_file (deleted)"
+                rm "$existing_file"
                 # TODO: clean up empty parent dirs
             fi
-        done < <(sh_pkg_db_get "$PACKAGES_DB.$source.$package")
+        done < <(sh_pkg_db_get "$package_db")
+
+        # Overwrite the installed files in the database
+        sh_pkg_db_clear "$package_db"
+        for installed_file in "${!installed_files[@]}"; do
+            sh_pkg_db_push "$package_db" "$installed_file"
+        done
 
         # Call all install hooks if we are the 'root' install
         if [[ -z "$_PARENT_SOURCE" ]]; then

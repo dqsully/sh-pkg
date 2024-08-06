@@ -1,9 +1,12 @@
 #!/bin/bash -e
 
-echo "[include]" > ~/.sh-pkg/.compiled/git-config.part
+GITCONFIG_TMP="$HOME/.sh-pkg/.compiled/gitconfig.part"
+GITCONFIG="$HOME/.sh-pkg/.compiled/gitconfig"
+
+echo "[include]" > "$GITCONFIG_TMP"
 
 while IFS="" read -r gitconf || [ -n "$gitconf" ]; do
-    echo $'\t'"path = \"$gitconf\""
+    echo $'\t'"path = $gitconf" >> "$GITCONFIG_TMP"
 done < <(find "$HOME/.sh-pkg/git" -type f | sort)
 
-mv ~/.sh-pkg/.compiled/git-config.part ~/.sh-pkg/.compiled/git-config
+mv "$GITCONFIG_TMP" "$GITCONFIG"
