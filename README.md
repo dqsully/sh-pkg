@@ -15,7 +15,7 @@ This will add the `std` remote source pointing to this repository, as well as in
 To update your dotfiles (only Bash and Zsh are currently supported) to work with sh-pkg packages, run:
 
 ```bash
-~/bin/sh-pkg install std/dotfile-bash std/dotfile-zsh
+~/bin/sh-pkg install dotfile-bash dotfile-zsh
 ```
 
 **NOTE: this will migrate your `.bashrc`, `.profile`, `.zshenv`, and `.zshrc` files into the sh-pkg dotfile dirs.**
@@ -40,12 +40,17 @@ By default, the `std` source is added during installation and points to this rep
 
 A "package" is a folder with files to copy into a user's home directory. Packages are referred to in a `source/package` format, e.g. `std/sh-pkg` for the package manager itself.
 
-To install the `std/kubectl` package for example, run
+Also, if a source is omitted from a package reference, it's assumed to be part of the `std` source, e.g. `sh-pkg` is the same as `std/sh-pkg`.
+
+To install the `std/aliases-kubectl` package for example, run
 ```bash
-sh-pkg install std/kubectl
+sh-pkg install aliases-kubectl
 ```
 
-As of yet, there is no way to remove a package, but you can reinstall a package just by running the `sh-pkg install` command again.
+To remove that package, run
+```bash
+sh-pkg uninstall aliases-kubectl
+```
 
 <!-- TODO: update command -->
 

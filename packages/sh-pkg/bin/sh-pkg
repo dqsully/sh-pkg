@@ -690,8 +690,13 @@ sh_pkg_info() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        source="${1%%/*}"
-        package="${1#*/}"
+        if [[ "$source" = */* ]]; then
+            source="${1%%/*}"
+            package="${1#*/}"
+        else
+            source=std
+            package="$1"
+        fi
         shift
 
         # Require source and package to be non empty
@@ -734,8 +739,13 @@ sh_pkg_install() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        source="${1%%/*}"
-        package="${1#*/}"
+        if [[ "$source" = */* ]]; then
+            source="${1%%/*}"
+            package="${1#*/}"
+        else
+            source=std
+            package="$1"
+        fi
         shift
 
         # If installed as a dependency, ./foo maps to the `foo` package of the same
@@ -893,8 +903,13 @@ sh_pkg_uninstall() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        source="${1%%/*}"
-        package="${1#*/}"
+        if [[ "$source" = */* ]]; then
+            source="${1%%/*}"
+            package="${1#*/}"
+        else
+            source=std
+            package="$1"
+        fi
         shift
 
         # Require source and package to be non empty
