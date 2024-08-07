@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir -p ~/.sh-pkg/git ~/.sh-pkg/.compiled
+
 if [[ -f "$HOME/.bashrc" ]]; then
     echo "Moving $HOME/.bashrc to $HOME/.sh-pkg/rc.d/00-user-bashrc.sh"
     {
