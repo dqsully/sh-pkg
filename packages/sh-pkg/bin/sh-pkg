@@ -349,6 +349,26 @@ sh_pkg_db_shift() {
     exec 4<&-
 }
 
+sh_pkg_db_touch_help() {
+    cat <<EOF >&2
+sh-pkg db touch <database>
+
+Create an empty database file if it doesn't exist already
+EOF
+}
+
+sh_pkg_db_touch() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_touch_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_touch_help
+        return 0
+    fi
+
+    touch "$DB_DIR/$1"
+}
+
 sh_pkg_db_unshift_help() {
     cat <<EOF >&2
 sh-pkg db unshift <database> <value>
@@ -400,13 +420,14 @@ Commands:
     push        add a line to the end of the database file
     remove      remove matching entries from a database file
     shift       remove a line from the start of a database file
+    touch       create a database file if it doesn't exist already
     unshift     add a line to the start of a database file
 EOF
 }
 
 sh_pkg_db() {
     case "$1" in
-        clear|delete|exists|get|has|list|edit|help|pop|push|remove|shift|unshift) sh_pkg_db_"$1" "${@:2}" ;;
+        clear|delete|exists|get|has|list|edit|help|pop|push|remove|shift|touch|unshift) sh_pkg_db_"$1" "${@:2}" ;;
         --help) sh_pkg_db_help ;;
         *) sh_pkg_db_help && return 1 ;;
     esac
@@ -744,15 +765,16 @@ sh_pkg_install() {
             return 1
         fi
 
+        package_db="$PACKAGES_DB.$source.$package"
+
         if sh_pkg_db_has "$PACKAGES_DB" "$source/$package"; then
             already_installed=true
         else
             already_installed=""
             sh_pkg_db_push "$PACKAGES_DB" "$source/$package" # add to list of installed packages
             sh_pkg_db_push "$PACKAGES_DB.$source" "$package" # add package to list of installed packages from a given source
+            sh_pkg_db_touch "$package_db"
         fi
-
-        package_db="$PACKAGES_DB.$source.$package"
 
         # Install package dependencies, if any
         if [[ -f "$package_dir/.pkg.deps" ]]; then
