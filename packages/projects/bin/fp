@@ -32,7 +32,7 @@ while IFS="" read -r projline || [ -n "$projline" ]; do
 
     readarray -t projoptions -d '' < <(find "$searchdir" -maxdepth ${projparts[2]} -mindepth ${projparts[1]} -type d -a -path "**/$search" | sort)
     possible_dirs=("${possible_dirs[@]}" "${projoptions[@]}")
-done <"$HOME/.projects"
+done <"$HOME/.sh-pkg/db/projects"
 
 declare -A visited
 deduped_dirs=()
