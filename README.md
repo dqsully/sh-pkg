@@ -18,7 +18,7 @@ This will add the `std` remote source pointing to this repository, as well as in
 - [x] Packages can be installed
 - [x] Packages can have dependencies
 - [x] `sh-pkg` can be bootstrapped
-- [ ] Scripts from `env.d` and `rc.d` are precompiled for speed
+- [x] Scripts from `env.d` and `rc.d` are precompiled for speed
 - [ ] Command to uninstall packages
 - [ ] Command to list installed and/or available packages
 - [ ] Command to print package info

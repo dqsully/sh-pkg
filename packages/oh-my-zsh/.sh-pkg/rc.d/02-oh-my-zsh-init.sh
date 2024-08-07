@@ -1,3 +1,5 @@
 # shellcheck shell=bash
 
-source $ZSH/oh-my-zsh.sh
+if [ ! "$IS_BASH" ]; then
+    source $ZSH/oh-my-zsh.sh
+fi
