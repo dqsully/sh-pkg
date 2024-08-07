@@ -62,7 +62,7 @@ To read or edit any database entries, use the `sh-pkg db` subcommands.
     - `install` - scripts to run after any `sh-pkg install` command, e.g. compiling `~/.sh-pkg/env.d`
 - `rc.d` - scripts to compile into a `.zshrc` or `.bashrc` file, should contain shell configurations, aliases, and functions
 - `remote_sources` - where sh-pkg maintains Git repositories for remote sources
-` sources` - symlinks for each installed source to the source's real location (e.g. to a repo in `remote_sources`)
+- `sources` - symlinks for each installed source to the source's real location (e.g. to a repo in `remote_sources`)
 
 ## Implementation status
 
