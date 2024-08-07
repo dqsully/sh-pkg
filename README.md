@@ -23,7 +23,7 @@ sh-pkg source add mysourcename path/to/source
 
 To add a remote source, run
 ```bash
-sh-pkg source add mysourcename https://github.com/me/mypackages packages/subdir
+sh-pkg source add mysourcename https://github.com/me/mypackages subdir/within/the/repo
 ```
 
 By default, the `std` source is added during installation and points to this repository.
@@ -43,7 +43,7 @@ As of yet, there is no way to remove a package, but you can reinstall a package 
 
 When writing a package, you can use some special files starting with `.pkg` to add metadata or package hooks:
 - `.pkg.info` - plaintext package info
-- `.pkg.deps` - newline-delimited package dependencies
+- `.pkg.deps` - newline-delimited package dependencies in `source/package` format, `.` can be used in this file to reference the current source, e.g. `./kubelet`
 - `.pkg.preinstall.sh` - preinstall script executed only before installation, best for migrating existing user files
 - `.pkg.install.sh` - script executed during install or update, before files are copied but after installation is validated
 
@@ -55,14 +55,14 @@ To read or edit any database entries, use the `sh-pkg db` subcommands.
 
 ## `~/.sh-pkg`
 
-`~/.sh-pkg` is where sh-pkg stores all of its configuration. The following directories are standard, but packages may and nonstandard ones as well:
+`~/.sh-pkg` is where sh-pkg stores all of its configuration. The following directories are standard, but packages may add nonstandard ones as well:
 - `db` - the sh-pkg database directory
 - `env.d` - scripts to compile into a `.zshenv` or `.profile` file, should contain environment variable settings
 - `hook` - sh-pkg hooks
     - `install` - scripts to run after any `sh-pkg install` command, e.g. compiling `~/.sh-pkg/env.d`
 - `rc.d` - scripts to compile into a `.zshrc` or `.bashrc` file, should contain shell configurations, aliases, and functions
 - `remote_sources` - where sh-pkg maintains Git repositories for remote sources
-` sources` - symlinks for each installed source to the source's real location (e.g. to a repo in `remote_sources`)
+- `sources` - symlinks for each installed source to the source's real location (e.g. to a repo in `remote_sources`)
 
 ## Implementation status
 
