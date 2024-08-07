@@ -11,30 +11,6 @@ curl https://raw.githubusercontent.com/dqsully/sh-pkg/main/install.sh | bash -
 ```
 
 This will add the `std` remote source pointing to this repository, as well as install the `std/sh-pkg` package. **NOTE: this will migrate your `.bashrc`, `.profile`, `.zshenv`, and `.zshrc` files into the sh-pkg dotfile dirs.**
-
-## Implementation status
-
-- [x] Can install and update local or remote package sources
-- [x] Packages can be installed
-- [x] Packages can have dependencies
-- [x] `sh-pkg` can be bootstrapped
-- [x] Scripts from `env.d` and `rc.d` are precompiled for speed
-- [ ] Command to uninstall packages
-- [ ] Command to list installed and/or available packages
-- [ ] Command to print package info
-- [ ] Command to update installed packages
-- [ ] Command to update all sources
-- [x] Support for pre-install hooks
-- [ ] More safety around package removal
-- [ ] Better shell detection (instead of defaulting to zsh if not bash)
-- [ ] Package features
-    - [ ] brew - installs brew
-    - [ ] brew - updates brew
-    - [x] git - migrates existing `.gitconfig`
-    - [ ] rust - installs rustup
-    - [ ] rust - updates cargo packages
-    - [x] sh-pkg - migrates existing `.profile`, `.bashrc`, `.zshrc`, and `.zshenv`
-    - [ ] sh-pkg - overwrite `.profile`, `.bashrc`, `.zshrc`, and `.zshenv` directly
     
 ## Sources
 
@@ -85,3 +61,27 @@ To read or edit any database entries, use the `sh-pkg db` subcommands.
 - `rc.d` - scripts to compile into a `.zshrc` or `.bashrc` file, should contain shell configurations, aliases, and functions
 - `remote_sources` - where sh-pkg maintains Git repositories for remote sources
 ` sources` - symlinks for each installed source to the source's real location (e.g. to a repo in `remote_sources`)
+
+## Implementation status
+
+- [x] Can install and update local or remote package sources
+- [x] Packages can be installed
+- [x] Packages can have dependencies
+- [x] `sh-pkg` can be bootstrapped
+- [x] Scripts from `env.d` and `rc.d` are precompiled for speed
+- [ ] Command to uninstall packages
+- [ ] Command to list installed and/or available packages
+- [ ] Command to print package info
+- [ ] Command to update installed packages
+- [ ] Command to update all sources
+- [x] Support for pre-install hooks
+- [ ] More safety around package removal
+- [ ] Better shell detection (instead of defaulting to zsh if not bash)
+- [ ] Package features
+    - [ ] brew - installs brew
+    - [ ] brew - updates brew
+    - [x] git - migrates existing `.gitconfig`
+    - [ ] rust - installs rustup
+    - [ ] rust - updates cargo packages
+    - [x] sh-pkg - migrates existing `.profile`, `.bashrc`, `.zshrc`, and `.zshenv`
+    - [ ] sh-pkg - overwrite `.profile`, `.bashrc`, `.zshrc`, and `.zshenv` directly
