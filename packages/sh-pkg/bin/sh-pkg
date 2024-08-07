@@ -59,7 +59,7 @@ sh_pkg_db_delete() {
     fi
 
     # Do nothing if the file is already deleted
-    if [[ ! -f "$D_DIR/$1" ]]; then
+    if [[ ! -f "$DB_DIR/$1" ]]; then
         return 0
     fi
 
