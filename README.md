@@ -30,13 +30,7 @@ By default, the `std` source is added during installation and points to this rep
 
 ## Packages
 
-A "package" is a folder with files to copy into a user's home directory, except for files which start with `.pkg` that have special meanings:
-- `.pkg.info` - plaintext package info
-- `.pkg.deps` - newline-delimited package dependencies
-- `.pkg.preinstall.sh` - preinstall script executed only before installation, best for migrating existing user files
-- `.pkg.install.sh` - script executed during install or update, before files are copied but after installation is validated
-
-Packages are referred to in a `source/package` format, e.g. `std/sh-pkg` for the package manager itself.
+A "package" is a folder with files to copy into a user's home directory. Packages are referred to in a `source/package` format, e.g. `std/sh-pkg` for the package manager itself.
 
 To install the `std/kubectl` package for example, run
 ```bash
@@ -44,6 +38,14 @@ sh-pkg install std/kubectl
 ```
 
 As of yet, there is no way to remove a package, but you can reinstall a package just by running the `sh-pkg install` command again.
+
+<!-- TODO: update command -->
+
+When writing a package, you can use some special files starting with `.pkg` to add metadata or package hooks:
+- `.pkg.info` - plaintext package info
+- `.pkg.deps` - newline-delimited package dependencies
+- `.pkg.preinstall.sh` - preinstall script executed only before installation, best for migrating existing user files
+- `.pkg.install.sh` - script executed during install or update, before files are copied but after installation is validated
 
 ## Database
 
@@ -72,8 +74,8 @@ To read or edit any database entries, use the `sh-pkg db` subcommands.
 - [ ] Command to uninstall packages
 - [ ] Command to list installed and/or available packages
 - [ ] Command to print package info
-- [ ] Command to update installed packages
 - [ ] Command to update all sources
+- [ ] Command to update installed packages
 - [x] Support for pre-install hooks
 - [ ] More safety around package removal
 - [ ] Better shell detection (instead of defaulting to zsh if not bash)
