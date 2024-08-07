@@ -58,13 +58,18 @@ sh_pkg_db_delete() {
         return 0
     fi
 
+    # Do nothing if the file is already deleted
+    if [[ ! -f "$D_DIR/$1" ]]; then
+        return 0
+    fi
+
     # Lock database file for writes
     exec 4<"$DB_DIR/$1"
     flock -x 4
 
     rm "$DB_DIR/$1"
 
-    exec 4<&-
+    # no need to `exec` since the file is deletted
 }
 
 sh_pkg_db_get_help() {
@@ -84,7 +89,7 @@ sh_pkg_db_get() {
         return 0
     fi
 
-    if [[ ! -f "$1" ]]; then
+    if [[ ! -f "$DB_DIR/$1" ]]; then
         return 0
     fi
 
@@ -95,6 +100,26 @@ sh_pkg_db_get() {
     cat "$DB_DIR/$1"
 
     exec 4<&-
+}
+
+sh_pkg_db_exists_help() {
+    cat <<EOF >&2
+sh-pkg db exists <database>
+
+Returns a 0 exit code if the database file exists
+EOF
+}
+
+sh_pkg_db_exists() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_db_exists_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_exists_help
+        return 0
+    fi
+
+    [[ -f "$DB_DIR/$1" ]]
 }
 
 sh_pkg_db_has_help() {
@@ -251,6 +276,46 @@ sh_pkg_db_push() {
     exec 4<&-
 }
 
+sh_pkg_db_remove_help() {
+    cat <<EOF >&2
+sh-pkg db remove <database> <entry> [entry...]
+
+For one or more values, remove all lines matching that value from a database file
+EOF
+}
+
+sh_pkg_db_remove() {
+    if [[ "$#" -lt 2 ]]; then
+        sh_pkg_db_remove_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_db_push_help
+        return 0
+    fi
+
+    # If the database doesn't exist, do nothing
+    if [[ ! -f "$DB_DIR/$1" ]]; then
+        return 0
+    fi
+
+    # Lock database file for writes
+    exec 4<"$DB_DIR/$1"
+    flock -x 4
+
+    cp "$DB_DIR/$1" "$DB_DIR/$1."
+    truncate -s0 "$DB_DIR/$1"
+
+    while IFS="" read -r db_line || [ -n "$db_line" ]; do
+        for entry in "${@:2}"; do
+            if [[ "$db_line" != "$entry" ]]; then
+                echo "$db_line" >>"$DB_DIR/$1"
+            fi
+        done
+    done <"$DB_DIR/$1."
+
+    exec 4<&-
+}
+
 sh_pkg_db_shift_help() {
     cat <<EOF >&2
 sh-pkg db shift <database>
@@ -325,6 +390,7 @@ sh-pkg db <command> [flags]
 Commands:
     clear       remove all entries from a database
     delete      delete a database
+    exists      returns a 0 exit code if the database file exists
     get         print the contents of a database file
     has         returns a 0 exit code if the database file has the given line
     list        list database files
@@ -332,6 +398,7 @@ Commands:
     help        print this output
     pop         remove a line from the end of a database file
     push        add a line to the end of the database file
+    remove      remove matching entries from a database file
     shift       remove a line from the start of a database file
     unshift     add a line to the start of a database file
 EOF
@@ -339,7 +406,7 @@ EOF
 
 sh_pkg_db() {
     case "$1" in
-        clear|delete|get|has|list|edit|help|pop|push|shift|unshift) sh_pkg_db_"$1" "${@:2}" ;;
+        clear|delete|exists|get|has|list|edit|help|pop|push|remove|shift|unshift) sh_pkg_db_"$1" "${@:2}" ;;
         --help) sh_pkg_db_help ;;
         *) sh_pkg_db_help && return 1 ;;
     esac
@@ -497,7 +564,7 @@ sh_pkg_install() {
 
         # Ensure source is configured
         if [[ ! -d "$SOURCES_DIR/$source" ]]; then
-            echo "Error: source not configured" >&2
+            echo "Error: source $source not configured" >&2
             return 1
         fi
 
@@ -505,7 +572,7 @@ sh_pkg_install() {
 
         # Ensure package exists in source
         if [[ ! -d "$package_dir" ]]; then
-            echo "Error: package is not a directory" >&2
+            echo "Error: package $package is not a directory in source $source" >&2
             return 1
         fi
 
@@ -521,6 +588,8 @@ sh_pkg_install() {
 
         # Install package dependencies, if any
         if [[ -f "$package_dir/.pkg.deps" ]]; then
+            sh_pkg_db_delete "$package_db.deps"
+
             while IFS="" read -r dependency || [ -n "$dependency" ]; do
                 sh_pkg_db_push "$package_db.deps" "$dependency" # add to list of installed dependencies for package
 
@@ -632,8 +701,48 @@ EOF
 }
 
 sh_pkg_uninstall() {
-    echo "Error: unimplemtentd" >&2
-    return 1
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_install_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_install_help
+        return 0
+    fi
+
+    while [[ "$#" -gt 0 ]]; do
+        source="${1%/*}"
+        package="${1#*/}"
+        shift
+
+        # Require source and package to be non empty
+        if [[ -z "$source" || -z "$package" ]]; then
+            # TODO: add more validation like this throughout, maybe in helper functions?
+            echo "Error: empty source or package name" >&2
+            return 1
+        fi
+
+        package_db="$PACKAGES_DB.$source.$package"
+
+        # Ensure package is installed
+        if ! sh_pkg_db_exists "$package_db"; then
+            echo "Error: package $source/$package not installed"
+            return 1
+        fi
+
+        echo "Uninstalling $source/$package..."
+
+        # Delete any installed files
+        while IFS="" read -r installed_file || [ -n "$installed_file" ]; do
+            echo "    $installed_file (deleted)"
+            rm "$installed_file"
+        done < <(sh_pkg_db_get "$package_db")
+
+        # Remove package from database
+        sh_pkg_db_delete "$package_db"
+        sh_pkg_db_delete "$package_db.deps"
+        sh_pkg_db_remove "$PACKAGES_DB.$source" "$package"
+        sh_pkg_db_remove "$PACKAGES_DB" "$source/$package"
+    done
 }
 
 sh_pkg_help() {

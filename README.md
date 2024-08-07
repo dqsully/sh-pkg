@@ -64,6 +64,8 @@ To read or edit any database entries, use the `sh-pkg db` subcommands.
 - `remote_sources` - where sh-pkg maintains Git repositories for remote sources
 - `sources` - symlinks for each installed source to the source's real location (e.g. to a repo in `remote_sources`)
 
+Directories added by packages
+
 ## Implementation status
 
 - [x] Can install and update local or remote package sources
@@ -77,13 +79,30 @@ To read or edit any database entries, use the `sh-pkg db` subcommands.
 - [ ] Command to update all sources
 - [ ] Command to update installed packages
 - [x] Support for pre-install hooks
+- [ ] Suggested packages
 - [ ] More safety around package removal
 - [ ] Better shell detection (instead of defaulting to zsh if not bash)
 - [ ] Package features
     - [ ] brew - installs brew
     - [ ] brew - updates brew
+    - [ ] code-insiders - rename to something better
+    - [ ] dotnet - install/manage .NET versions?
     - [x] git - migrates existing `.gitconfig`
+    - [ ] go - installs go
+    - [ ] go - updates go
+    - [ ] kubectl - rename to aliases-kubectl
+    - [ ] kubectl - add Bash aliases, remove oh-my-zsh dependency
+    - [ ] kubie - fix zsh compdef
+    - [ ] kubie - add Bash support
+    - [ ] nvm - install nvm
+    - [ ] nvm - update nvm
+    - [ ] nvm - support nvm in Bash
+    - [ ] oh-my-zsh - make install compatible
+    - [ ] projects - rename
+    - [ ] pyenv - install pyenv
+    - [ ] pyenv - update pyenv
     - [ ] rust - installs rustup
     - [ ] rust - updates cargo packages
     - [x] sh-pkg - migrates existing `.profile`, `.bashrc`, `.zshrc`, and `.zshenv`
-    - [ ] sh-pkg - overwrite `.profile`, `.bashrc`, `.zshrc`, and `.zshenv` directly
+    - [ ] sh-pkg - overwrite `.profile`, `.bashrc`, `.zshrc`, and `.zshenv` directly instead of using
+    - [ ] sh-pkg - split  Bash/Zsh support into separate packages
