@@ -24,15 +24,16 @@ This will add the `std` remote source pointing to this repository, as well as in
 - [ ] Command to print package info
 - [ ] Command to update installed packages
 - [ ] Command to update all sources
-- [ ] Pre-install hooks to migrate existing `.profile`, `.bashrc`, `.zshrc`, `.zshenv`, `.gitconfig`, etc.
+- [x] Support for pre-install hooks
 - [ ] More safety around package removal
+- [ ] Better shell detection (instead of defaulting to zsh if not bash)
 - [ ] Package features
     - [ ] brew - installs brew
     - [ ] brew - updates brew
     - [x] git - migrates existing `.gitconfig`
     - [ ] rust - installs rustup
     - [ ] rust - updates cargo packages
-    - [ ] sh-pkg - migrates existing `.profile`, `.bashrc`, `.zshrc`, and `.zshenv`
+    - [x] sh-pkg - migrates existing `.profile`, `.bashrc`, `.zshrc`, and `.zshenv`
     
 ## Sources
 
