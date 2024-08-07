@@ -850,6 +850,8 @@ sh_pkg_install() {
             sh_pkg_db_push "$package_db" "$installed_file"
         done
 
+        unset installed_files
+
         echo
     done
 
@@ -923,7 +925,12 @@ sh_pkg_uninstall() {
         sh_pkg_db_delete "$package_db.deps"
         sh_pkg_db_remove "$PACKAGES_DB.$source" "$package"
         sh_pkg_db_remove "$PACKAGES_DB" "$source/$package"
+
+        echo
     done
+
+    echo "Running global install hooks"
+    sh_pkg_hook_install
 }
 
 sh_pkg_help() {
