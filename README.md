@@ -10,7 +10,7 @@ First, make sure `git` is installed, then run:
 curl https://raw.githubusercontent.com/dqsully/sh-pkg/main/install.sh | bash -
 ```
 
-This will add the `std` remote source pointing to this repository, as well as install the `std/sh-pkg` package.
+This will add the `std` remote source pointing to this repository, as well as install the `std/sh-pkg` package. **NOTE: this will migrate your `.bashrc`, `.profile`, `.zshenv`, and `.zshrc` files into the sh-pkg dotfile dirs.**
 
 ## Implementation status
 
@@ -34,6 +34,7 @@ This will add the `std` remote source pointing to this repository, as well as in
     - [ ] rust - installs rustup
     - [ ] rust - updates cargo packages
     - [x] sh-pkg - migrates existing `.profile`, `.bashrc`, `.zshrc`, and `.zshenv`
+    - [ ] sh-pkg - overwrite `.profile`, `.bashrc`, `.zshrc`, and `.zshenv` directly
     
 ## Sources
 
