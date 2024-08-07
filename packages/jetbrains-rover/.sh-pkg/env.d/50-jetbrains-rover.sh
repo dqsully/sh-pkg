@@ -1,3 +1,4 @@
-# shellcheck shell=bash
+# sh-pkg:shell any-posix
+# shellcheck shell=sh
 
-source "$HOME/.rover/env"
+. "$HOME/.rover/env"

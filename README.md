@@ -10,7 +10,15 @@ First, make sure `git` is installed, then run:
 curl https://raw.githubusercontent.com/dqsully/sh-pkg/main/install.sh | bash -
 ```
 
-This will add the `std` remote source pointing to this repository, as well as install the `std/sh-pkg` package. **NOTE: this will migrate your `.bashrc`, `.profile`, `.zshenv`, and `.zshrc` files into the sh-pkg dotfile dirs.**
+This will add the `std` remote source pointing to this repository, as well as install the `std/sh-pkg` package, which puts the `sh-pkg` executable in the `~/bin` directory.
+
+To update your dotfiles (only Bash and Zsh are currently supported) to work with sh-pkg packages, run:
+
+```bash
+~/bin/sh-pkg install std/dotfile-bash std/dotfile-zsh
+```
+
+**NOTE: this will migrate your `.bashrc`, `.profile`, `.zshenv`, and `.zshrc` files into the sh-pkg dotfile dirs.**
     
 ## Sources
 
@@ -44,8 +52,8 @@ As of yet, there is no way to remove a package, but you can reinstall a package 
 When writing a package, you can use some special files starting with `.pkg` to add metadata or package hooks:
 - `.pkg.info` - plaintext package info
 - `.pkg.deps` - newline-delimited package dependencies in `source/package` format, `.` can be used in this file to reference the current source, e.g. `./kubelet`
-- `.pkg.preinstall.sh` - preinstall script executed only before installation, best for migrating existing user files
-- `.pkg.install.sh` - script executed during install or update, before files are copied but after installation is validated
+- `.pkg.preinstall.sh` - preinstall script executed only before installation, best for migrating existing user files (make sure to `chmod +x`)
+- `.pkg.install.sh` - script executed during install or update, before files are copied but after installation is validated (make sure to `chmod +x`)
 
 ## Database
 
@@ -73,15 +81,15 @@ Directories added by packages
 - [x] Packages can have dependencies
 - [x] `sh-pkg` can be bootstrapped
 - [x] Scripts from `env.d` and `rc.d` are precompiled for speed
-- [ ] Command to uninstall packages
+- [x] Command to uninstall packages
 - [ ] Command to list installed and/or available packages
-- [ ] Command to print package info
+- [x] Command to print package info
 - [ ] Command to update all sources
 - [ ] Command to update installed packages
 - [x] Support for pre-install hooks
 - [ ] Suggested packages
 - [ ] More safety around package removal
-- [ ] Better shell detection (instead of defaulting to zsh if not bash)
+- [x] Better shell detection (instead of defaulting to zsh if not bash)
 - [ ] Package features
     - [ ] brew - installs brew
     - [ ] brew - updates brew
@@ -98,11 +106,12 @@ Directories added by packages
     - [ ] nvm - update nvm
     - [ ] nvm - support nvm in Bash
     - [ ] oh-my-zsh - make install compatible
+    - [ ] oh-my-posh - create package
     - [ ] projects - rename
     - [ ] pyenv - install pyenv
     - [ ] pyenv - update pyenv
     - [ ] rust - installs rustup
     - [ ] rust - updates cargo packages
     - [x] sh-pkg - migrates existing `.profile`, `.bashrc`, `.zshrc`, and `.zshenv`
-    - [ ] sh-pkg - overwrite `.profile`, `.bashrc`, `.zshrc`, and `.zshenv` directly instead of using
-    - [ ] sh-pkg - split  Bash/Zsh support into separate packages
+    - [ ] sh-pkg - overwrite `.profile`, `.bashrc`, `.zshrc`, and `.zshenv` directly instead of using `.sh-pkg/.compiled` directory
+    - [x] sh-pkg - split  Bash/Zsh support into separate packages

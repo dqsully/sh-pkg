@@ -1,4 +1,5 @@
-# shellcheck shell=bash
+# sh-pkg:shell any-posix
+# shellcheck shell=sh
 
 alias kgn="kubectl get node"
 alias kdn="kubectl describe node"

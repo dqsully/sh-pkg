@@ -150,7 +150,7 @@ sh_pkg_db_has() {
     flock -s 4
 
     # TODO: more efficient implementation?
-    while IFS="" read -r db_line || [ -n "$db_line" ]; do
+    while IFS="" read -r db_line; do
         if [[ "$db_line" == "$2" ]]; then
             exec 4<&-
             return 0
@@ -305,7 +305,7 @@ sh_pkg_db_remove() {
     cp "$DB_DIR/$1" "$DB_DIR/$1."
     truncate -s0 "$DB_DIR/$1"
 
-    while IFS="" read -r db_line || [ -n "$db_line" ]; do
+    while IFS="" read -r db_line; do
         for entry in "${@:2}"; do
             if [[ "$db_line" != "$entry" ]]; then
                 echo "$db_line" >>"$DB_DIR/$1"
@@ -412,6 +412,130 @@ sh_pkg_db() {
     esac
 }
 
+sh_pkg_helper_check_help() {
+    cat <<EOF >&2
+sh-pkg helper check <file> [key=value ...]
+
+Checks that a file's sh-pkg metadata matches the given constraints. A single
+constraint can have multiple values separated by a comma (','), and if any of
+those values positively match and none negatively match, then the constraint is
+satisfied.
+EOF
+}
+
+sh_pkg_helper_check() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_helper_check_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_helper_check_help
+        return 0
+    fi
+
+    if [[ ! -f "$1" ]]; then
+        echo "Error: file doesn't exist" >&2
+        return 1
+    fi
+
+    declare -A file_meta
+
+    # Parse file metadata
+    while IFS="" read -r line; do
+        if [[ "$line" = '#!'* ]]; then
+            : # do nothing
+        elif [[ "$line" = '# sh-pkg:'* ]]; then
+            line="${line#'# sh-pkg:'}"
+            key="${line%%' '*}"
+            expr="${line#*' '}"
+            file_meta["$key"]="$expr"
+        else
+            break
+        fi
+    done <"$1"
+
+    for constraint in "${@:2}"; do
+        key="${constraint%%=*}"
+        IFS=',' read -ra values <<<"${constraint#*=}"
+        IFS=' ' read -ra exprs <<<"${file_meta["$key"]}"
+
+        positive_match=""
+
+        for value in "${values[@]}"; do
+            for expr in "${exprs[@]}"; do
+                if [[ "$value" == "${expr#'!'}" ]]; then
+                    if [[ "$expr" = '!'* ]]; then
+                        # Negative match, constraint can't be satisfied
+                        return 1
+                    fi
+
+                    positive_match="true"
+                fi
+            done
+        done
+
+        # If no positive match was found for constraint, it can't be satisfied
+        if [[ -z "$positive_match" ]]; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+sh_pkg_helper_help() {
+    cat <<EOF >&2
+sh-pkg helper <command> [flags]
+
+Commands:
+    check       returns 0 if a file's sh-pkg metadata matches given constraints
+EOF
+}
+
+sh_pkg_helper() {
+    case "$1" in
+        check) sh_pkg_helper_"$1" "${@:2}" ;;
+        --help) sh_pkg_helper_help ;;
+        *) sh_pkg_helper_help && return 1 ;;
+    esac
+}
+
+sh_pkg_hook_install_help() {
+    cat <<EOF >&2
+sh-pkg hook install
+
+Runs the sh-pkg install hooks
+EOF
+}
+
+# shellcheck disable=SC2120
+sh_pkg_hook_install() {
+    if [[ "$1" == "--help" ]]; then
+        sh_pkg_info_help
+        return 0
+    fi
+
+    while IFS="" read -r hook; do
+        "$hook"
+    done < <(find "$INSTALL_HOOKS_DIR" -type f | sort)
+}
+
+sh_pkg_hook_help() {
+    cat <<EOF >&2
+sh-pkg hook <command> [flags]
+
+Commands:
+    install     run install hooks
+EOF
+}
+
+sh_pkg_hook() {
+    case "$1" in
+        install) sh_pkg_hook_"$1" "${@:2}" ;;
+        --help) sh_pkg_hook_help ;;
+        *) sh_pkg_hook_help && return 1 ;;
+    esac
+}
+
 sh_pkg_source_add_help() {
     cat <<EOF >&2
 sh-pkg source add <name> [repo] <path> [git clone args]
@@ -478,7 +602,7 @@ sh_pkg_source_list() {
         return 0
     fi
 
-    while IFS="" read -r source || [ -n "$source" ]; do
+    while IFS="" read -r source; do
         real_source="$(readlink "$SOURCES_DIR/$source")"
 
         if [[ "$real_source" = "$REMOTE_SOURCES_DIR"/* ]]; then
@@ -527,6 +651,50 @@ sh_pkg_source() {
     esac
 }
 
+sh_pkg_info_help() {
+    cat <<EOF >&2
+sh-pkg info [source/package ...]
+
+Print info about one or more installable packages from configured sources
+EOF
+}
+
+sh_pkg_info() {
+    if [[ "$#" -lt 1 ]]; then
+        sh_pkg_info_help
+        return 1
+    elif [[ "$1" == "--help" ]]; then
+        sh_pkg_info_help
+        return 0
+    fi
+
+    while [[ "$#" -gt 0 ]]; do
+        source="${1%%/*}"
+        package="${1#*/}"
+        shift
+
+        # Require source and package to be non empty
+        if [[ -z "$source" || -z "$package" ]]; then
+            # TODO: add more validation like this throughout, maybe in helper functions?
+            echo "Error: empty source or package name" >&2
+            return 1
+        fi
+
+        package_dir="$SOURCES_DIR/$source/$package"
+
+        # Print package info
+        if [[ -f "$package_dir/.pkg.info" ]]; then
+            echo "$source/$package:"
+            echo
+            cat "$package_dir/.pkg.info"
+        else
+            echo "($source/$package has no description)"
+        fi
+
+        echo
+    done
+}
+
 sh_pkg_install_help() {
     cat <<EOF >&2
 sh-pkg install [source/package ...]
@@ -545,7 +713,7 @@ sh_pkg_install() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        source="${1%/*}"
+        source="${1%%/*}"
         package="${1#*/}"
         shift
 
@@ -590,7 +758,7 @@ sh_pkg_install() {
         if [[ -f "$package_dir/.pkg.deps" ]]; then
             sh_pkg_db_delete "$package_db.deps"
 
-            while IFS="" read -r dependency || [ -n "$dependency" ]; do
+            while IFS="" read -r dependency; do
                 sh_pkg_db_push "$package_db.deps" "$dependency" # add to list of installed dependencies for package
 
                 if ! (_PARENT_SOURCE="$source" _DEPENDENCY_OF="$source/$package" sh_pkg_install "$dependency"); then
@@ -600,21 +768,13 @@ sh_pkg_install() {
             done <"$package_dir/.pkg.deps"
         fi
 
-        # Print package info
-        if [[ -f "$package_dir/.pkg.info" ]]; then
-            echo "Package info:"
-            echo
-            cat "$package_dir/.pkg.info"
-            echo
-        fi
-
         # Run package preinstall script if it exists
         if [[ -z "$already_installed" && -f "$package_dir/.pkg.preinstall.sh" ]]; then
             "$package_dir/.pkg.preinstall.sh"
         fi
 
         # Make sure none of the files in the package already exist
-        while IFS="" read -r file_to_copy || [ -n "$file_to_copy" ]; do
+        while IFS="" read -r file_to_copy; do
             dest_path="$HOME/${file_to_copy#"$package_dir"/}"
 
             if [[ -e "$dest_path" && -z "$already_installed" ]] && ! sh_pkg_db_has "$package_db" "$dest_path"; then
@@ -637,7 +797,7 @@ sh_pkg_install() {
         fi
 
         # Install files from package
-        while IFS="" read -r file_to_copy || [ -n "$file_to_copy" ]; do
+        while IFS="" read -r file_to_copy; do
             dest_path="$HOME/${file_to_copy#"$package_dir"/}"
             sh_pkg_db_has "$package_db" "$dest_path" || sh_pkg_db_push "$package_db" "$dest_path"
             installed_files["$dest_path"]="true"
@@ -654,7 +814,7 @@ sh_pkg_install() {
         done < <(find "$package_dir" ! -path "$package_dir/.pkg*" -a -type f | sort)
 
         # Remove any old files not in the package anymore
-        while IFS="" read -r existing_file || [ -n "$existing_file" ]; do
+        while IFS="" read -r existing_file; do
             if [[ "${installed_files["$existing_file"]}" != "true" ]]; then
                 echo "    $existing_file (deleted)"
                 rm "$existing_file"
@@ -668,15 +828,14 @@ sh_pkg_install() {
             sh_pkg_db_push "$package_db" "$installed_file"
         done
 
-        # Call all install hooks if we are the 'root' install
-        if [[ -z "$_PARENT_SOURCE" ]]; then
-            while IFS="" read -r hook || [ -n "$hook" ]; do
-                "$hook"
-            done < <(find "$INSTALL_HOOKS_DIR" -type f | sort)
-        fi
-
         echo
     done
+
+    # Call all install hooks if we are the last 'root' install
+    if [[ -z "$_PARENT_SOURCE" ]]; then
+        echo "Running global install hooks"
+        sh_pkg_hook_install
+    fi
 }
 
 sh_pkg_update_help() {
@@ -710,7 +869,7 @@ sh_pkg_uninstall() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        source="${1%/*}"
+        source="${1%%/*}"
         package="${1#*/}"
         shift
 
@@ -732,7 +891,7 @@ sh_pkg_uninstall() {
         echo "Uninstalling $source/$package..."
 
         # Delete any installed files
-        while IFS="" read -r installed_file || [ -n "$installed_file" ]; do
+        while IFS="" read -r installed_file; do
             echo "    $installed_file (deleted)"
             rm "$installed_file"
         done < <(sh_pkg_db_get "$package_db")
@@ -752,10 +911,16 @@ sh-pkg <command> [flags]
 Commands:
     db          manage sh-pkg data stores
     help        print this output
+    helper      general-purpose script helpers
+    hook        run global hooks
+    info        print info about an installable package
     install     install a package
     source      manage sh-pkg sources
     update      update one or more packages
     uninstall   uninstall a package
+
+You can add '--help' as a first argument to any sh-pkg command to print that
+command's help text.
 
 Available hooks:
     ~/.sh-pkg/hook/install/*    called after a package is installed or uninstalled
@@ -763,7 +928,7 @@ EOF
 }
 
 case "$1" in
-    db|help|install|source|uninstall) sh_pkg_"$1" "${@:2}" ;;
+    db|help|helper|hook|info|install|source|uninstall) sh_pkg_"$1" "${@:2}" ;;
     --help) sh_pkg_help ;;
     *) sh_pkg_help && exit 1 ;;
 esac

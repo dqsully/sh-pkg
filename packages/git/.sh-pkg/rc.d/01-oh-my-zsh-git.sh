@@ -1,5 +1,6 @@
+# sh-pkg:shell zsh
 # shellcheck shell=bash
 
-if [ ! "$IS_BASH" ]; then
-  plugins=("${plugins[@]}" git)
-fi
+# TODO: remove reliance on oh-my-zsh
+
+plugins+=(git)

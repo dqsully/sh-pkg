@@ -13,7 +13,7 @@ search="$1"
 
 possible_dirs=()
 
-while IFS="" read -r projline || [ -n "$projline" ]; do
+while IFS="" read -r projline; do
     IFS=":" read -r -a projparts <<< "$projline"
 
     if [[ "${#projparts[@]}" -ne 3 ]]; then

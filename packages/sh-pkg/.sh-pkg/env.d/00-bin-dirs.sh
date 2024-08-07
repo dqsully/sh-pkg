@@ -1,3 +1,4 @@
+# sh-pkg:shell any-posix
 # shellcheck shell=bash
 
 # set PATH so it includes user's private bin if it exists

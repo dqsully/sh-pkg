@@ -1,5 +1,6 @@
-# shellcheck shell=bash
+# sh-pkg:shell any-posix
+# shellcheck shell=sh
 
 export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+[ -d $PYENV_ROOT/bin ] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"

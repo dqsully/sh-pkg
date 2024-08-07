@@ -5,7 +5,7 @@ GITCONFIG="$HOME/.sh-pkg/.compiled/gitconfig"
 
 echo "[include]" > "$GITCONFIG_TMP"
 
-while IFS="" read -r gitconf || [ -n "$gitconf" ]; do
+while IFS="" read -r gitconf; do
     echo $'\t'"path = $gitconf" >> "$GITCONFIG_TMP"
 done < <(find "$HOME/.sh-pkg/git" -type f | sort)
 
