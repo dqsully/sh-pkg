@@ -7,7 +7,14 @@ INSTALL_HOOKS_DIR="$HOOKS_DIR/install"
 SOURCES_DIR="$SH_PKG_DIR/sources"
 REMOTE_SOURCES_DIR="$SH_PKG_DIR/remote_sources"
 
-mkdir -p "$SH_PKG_DIR" "$DB_DIR" "$HOOKS_DIR" "$INSTALL_HOOKS_DIR" "$SOURCES_DIR" "$REMOTE_SOURCES_DIR"
+DIRS_CREATED=false
+
+ensure_dirs() {
+    if [[ "$DIRS_CREATED" == "false" ]]; then
+        mkdir -p "$SH_PKG_DIR" "$DB_DIR" "$HOOKS_DIR" "$INSTALL_HOOKS_DIR" "$SOURCES_DIR" "$REMOTE_SOURCES_DIR"
+        DIRS_CREATED=true
+    fi
+}
 
 PACKAGES_DB="sh-pkg.packages"
 
@@ -426,6 +433,8 @@ EOF
 }
 
 sh_pkg_db() {
+    ensure_dirs
+
     case "$1" in
         clear|delete|exists|get|has|list|edit|help|pop|push|remove|shift|touch|unshift) sh_pkg_db_"$1" "${@:2}" ;;
         --help) sh_pkg_db_help ;;
@@ -433,74 +442,105 @@ sh_pkg_db() {
     esac
 }
 
-sh_pkg_helper_check_help() {
+sh_pkg_helper_find_help() {
     cat <<EOF >&2
-sh-pkg helper check <file> [key=value ...]
+sh-pkg helper find [key=value ...] -- <find args ...>
 
-Checks that a file's sh-pkg metadata matches the given constraints. A single
-constraint can have multiple values separated by a comma (','), and if any of
-those values positively match and none negatively match, then the constraint is
-satisfied.
+Checks that one or more files' sh-pkg metadata matches the given constraints. A
+single constraint can have multiple values separated by a comma (','), and if
+any of those values positively match and none negatively match, then the
+constraint is satisfied.
 EOF
 }
 
-sh_pkg_helper_check() {
+sh_pkg_helper_find() {
     if [[ "$#" -lt 1 ]]; then
-        sh_pkg_helper_check_help
+        sh_pkg_helper_find_help
         return 1
     elif [[ "$1" == "--help" ]]; then
-        sh_pkg_helper_check_help
+        sh_pkg_helper_find_help
         return 0
     fi
 
-    if [[ ! -f "$1" ]]; then
-        echo "Error: file doesn't exist" >&2
-        return 1
-    fi
+    declare -A constraints
 
-    declare -A file_meta
-
-    # Parse file metadata
-    while IFS="" read -r line; do
-        if [[ "$line" = '#!'* ]]; then
-            : # do nothing
-        elif [[ "$line" = '# sh-pkg:'* ]]; then
-            line="${line#'# sh-pkg:'}"
-            key="${line%%' '*}"
-            expr="${line#*' '}"
-            file_meta["$key"]="$expr"
-        else
+    # Grab and list constraints
+    while [[ "$#" -gt 0 ]]; do
+        if [[ "$1" == "--" ]]; then
+            shift
             break
         fi
-    done <"$1"
 
-    for constraint in "${@:2}"; do
-        key="${constraint%%=*}"
-        IFS=',' read -ra values <<<"${constraint#*=}"
-        IFS=' ' read -ra exprs <<<"${file_meta["$key"]}"
-
-        positive_match=""
-
-        for value in "${values[@]}"; do
-            for expr in "${exprs[@]}"; do
-                if [[ "$value" == "${expr#'!'}" ]]; then
-                    if [[ "$expr" = '!'* ]]; then
-                        # Negative match, constraint can't be satisfied
-                        return 1
-                    fi
-
-                    positive_match="true"
-                fi
-            done
-        done
-
-        # If no positive match was found for constraint, it can't be satisfied
-        if [[ -z "$positive_match" ]]; then
-            return 1
-        fi
+        key="${1%%=*}"
+        value="${1#*=}"
+        constraints["$key"]="$value"
+        shift
     done
 
-    return 0
+    if [[ "$#" -eq 0 ]]; then
+        sh_pkg_helper_find_help
+    fi
+
+    # Process files
+    while IFS="" read -r file; do
+        if [[ ! -f "$file" ]]; then
+            continue
+        fi
+
+        declare -A file_meta
+
+        # Parse file metadata
+        while IFS="" read -r line; do
+            if [[ "$line" = '#!'* ]]; then
+                : # do nothing
+            elif [[ "$line" = '# sh-pkg:'* ]]; then
+                line="${line#'# sh-pkg:'}"
+                key="${line%%' '*}"
+                expr="${line#*' '}"
+                file_meta["$key"]="$expr"
+            else
+                break
+            fi
+        done <"$file"
+
+        negative_match=""
+
+        for key in "${!constraints[@]}"; do
+            IFS=',' read -ra values <<<"${constraints["$key"]}"
+            IFS=' ' read -ra exprs <<<"${file_meta["$key"]}"
+
+            positive_match=""
+
+            for value in "${values[@]}"; do
+                for expr in "${exprs[@]}"; do
+                    if [[ "$value" == "${expr#'!'}" ]]; then
+                        if [[ "$expr" = '!'* ]]; then
+                            # Negative match, constraint can't be satisfied
+                            negative_match=""
+                            break 3
+                        fi
+
+                        positive_match="true"
+                    fi
+                done
+            done
+
+            # If no positive match was found for constraint, it can't be satisfied
+            if [[ -z "$positive_match" ]]; then
+                break
+            fi
+        done
+
+        # If negative_match is empty and positive_match is true, then all
+        # constraints must have been satisfied, because we break out if either
+        # condition flips
+        if [[ -n "$positive_match" && -z "$negative_match" ]]; then
+            echo "$file"
+        fi
+
+        unset file_meta
+        shift
+    done < <(find "$@")
 }
 
 sh_pkg_helper_help() {
@@ -508,13 +548,13 @@ sh_pkg_helper_help() {
 sh-pkg helper <command> [flags]
 
 Commands:
-    check       returns 0 if a file's sh-pkg metadata matches given constraints
+    find        prints out all files matching given constraints
 EOF
 }
 
 sh_pkg_helper() {
     case "$1" in
-        check) sh_pkg_helper_"$1" "${@:2}" ;;
+        find) sh_pkg_helper_"$1" "${@:2}" ;;
         --help) sh_pkg_helper_help ;;
         *) sh_pkg_helper_help && return 1 ;;
     esac
@@ -665,6 +705,8 @@ EOF
 }
 
 sh_pkg_source() {
+    ensure_dirs
+
     case "$1" in
         add|help|list|remove) sh_pkg_source_"$1" "${@:2}" ;;
         --help) sh_pkg_source_help ;;
@@ -708,6 +750,11 @@ sh_pkg_info() {
 
         package_dir="$SOURCES_DIR/$source/$package"
 
+        if [[ ! -d "$package_dir" ]]; then
+            echo "Error: package $source/$package doesn't exist" >&2
+            return 1
+        fi
+
         # Print package info
         if [[ -f "$package_dir/.pkg.info" ]]; then
             echo "$source/$package:"
@@ -737,6 +784,8 @@ sh_pkg_install() {
         sh_pkg_install_help
         return 0
     fi
+
+    ensure_dirs
 
     while [[ "$#" -gt 0 ]]; do
         if [[ "$1" = */* ]]; then
@@ -801,9 +850,7 @@ sh_pkg_install() {
         fi
 
         # Run package preinstall script if it exists
-        if [[ -z "$already_installed" && -f "$package_dir/.pkg.preinstall.sh" ]]; then
-            "$package_dir/.pkg.preinstall.sh"
-        fi
+        [[ -z "$already_installed" && -f "$package_dir/.pkg.preinstall.sh" ]] && "$package_dir/.pkg.preinstall.sh"
 
         # Make sure none of the files in the package already exist
         while IFS="" read -r file_to_copy; do
@@ -815,18 +862,16 @@ sh_pkg_install() {
             fi
         done < <(find "$package_dir" ! -path "$package_dir/.pkg*" -a -type f | sort)
 
-        # Run package install script if it exists
-        if [[ -f "$package_dir/.pkg.install.sh" ]]; then
-            "$package_dir/.pkg.install.sh"
-        fi
-
-        declare -A installed_files
-
         if [ -z "$already_installed" ]; then
             echo "Installing $package from $source..."
         else
             echo "Updating $package from $source..."
         fi
+
+        # Run package install script if it exists
+        [ -f "$package_dir/.pkg.install.sh" ] && "$package_dir/.pkg.install.sh"
+
+        declare -A installed_files
 
         # Install files from package
         while IFS="" read -r file_to_copy; do
@@ -834,7 +879,12 @@ sh_pkg_install() {
             sh_pkg_db_has "$package_db" "$dest_path" || sh_pkg_db_push "$package_db" "$dest_path"
             installed_files["$dest_path"]="true"
             mkdir -p "$(dirname "$dest_path")"
-            echo "    $dest_path"
+
+            if [[ -e "$dest_path" ]]; then
+                echo "    $dest_path (updated)"
+            else
+                echo "    $dest_path (new)"
+            fi
 
             if [[ "$dest_path" == "$HOME/bin/sh-pkg" ]]; then
                 # Special logic to update sh-pkg executable
@@ -901,6 +951,8 @@ sh_pkg_uninstall() {
         sh_pkg_install_help
         return 0
     fi
+
+    ensure_dirs
 
     while [[ "$#" -gt 0 ]]; do
         if [[ "$1" = */* ]]; then
