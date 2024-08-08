@@ -516,7 +516,7 @@ sh_pkg_helper_find() {
                     if [[ "$value" == "${expr#'!'}" ]]; then
                         if [[ "$expr" = '!'* ]]; then
                             # Negative match, constraint can't be satisfied
-                            negative_match=""
+                            negative_match="true"
                             break 3
                         fi
 
