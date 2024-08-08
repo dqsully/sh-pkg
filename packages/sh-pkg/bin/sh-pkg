@@ -690,7 +690,7 @@ sh_pkg_info() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        if [[ "$source" = */* ]]; then
+        if [[ "$1" = */* ]]; then
             source="${1%%/*}"
             package="${1#*/}"
         else
@@ -739,7 +739,7 @@ sh_pkg_install() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        if [[ "$source" = */* ]]; then
+        if [[ "$1" = */* ]]; then
             source="${1%%/*}"
             package="${1#*/}"
         else
@@ -903,7 +903,7 @@ sh_pkg_uninstall() {
     fi
 
     while [[ "$#" -gt 0 ]]; do
-        if [[ "$source" = */* ]]; then
+        if [[ "$1" = */* ]]; then
             source="${1%%/*}"
             package="${1#*/}"
         else
