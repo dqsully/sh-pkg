@@ -2,6 +2,10 @@
 
 COMPILED="$HOME/.sh-pkg/.compiled"
 
+if [[ ! -d "$COMPILED" ]]; then
+    mkdir -p "$COMPILED"
+fi
+
 ENVSH_TMP="$COMPILED/env.zsh.part"
 ENVSH="$COMPILED/env.zsh"
 

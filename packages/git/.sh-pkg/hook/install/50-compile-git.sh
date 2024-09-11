@@ -1,7 +1,13 @@
 #!/bin/bash -e
 
-GITCONFIG_TMP="$HOME/.sh-pkg/.compiled/gitconfig.part"
-GITCONFIG="$HOME/.sh-pkg/.compiled/gitconfig"
+COMPILED="$HOME/.sh-pkg/.compiled"
+
+if [[ ! -d "$COMPILED" ]]; then
+    mkdir -p "$COMPILED"
+fi
+
+GITCONFIG_TMP="$COMPILED/gitconfig.part"
+GITCONFIG="$COMPILED/gitconfig"
 
 echo "[include]" > "$GITCONFIG_TMP"
 
