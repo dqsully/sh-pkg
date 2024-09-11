@@ -1,0 +1,14 @@
+# shellcheck shell=bash
+
+# .zshprofile is only used when Zsh is executed as a login shell, interactive
+# or not. When this file is present, Zsh will ignore the .profile file
+
+# Always include envs, since this likely includes PATH variables and more that
+# can be very helpful
+source "$HOME/.sh-pkg/.compiled/env.zsh"
+
+# If the session is interactive, then include the interactive shell setup as
+# well (sh-pkg has no distinction between interactive login/non-login shells)
+if [[ $- == *i* ]]; then
+    source "$HOME/.sh-pkg/.compiled/rc.zsh"
+fi
