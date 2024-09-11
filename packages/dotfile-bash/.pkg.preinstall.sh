@@ -11,3 +11,18 @@ if [[ -f "$HOME/.bashrc" ]]; then
 
     rm "$HOME/.bashrc"
 fi
+
+if [[ "${SHELL##*/}" == "bash" ]]; then
+    cat <<EOF
+******
+
+Current shell's dotfiles have been updated!
+
+Please reload your shell with this command:
+
+    exec $SHELL
+
+******
+
+EOF
+fi

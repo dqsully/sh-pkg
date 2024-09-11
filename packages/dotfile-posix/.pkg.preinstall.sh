@@ -11,3 +11,18 @@ if [[ -f "$HOME/.profile" ]]; then
 
     rm "$HOME/.profile"
 fi
+
+if [[ "${SHELL##*/}" == "bash" || "${SHELL##*/}" == "sh" || "${SHELL##*/}" == "ksh" ]]; then
+    cat <<EOF
+******
+
+Current shell's dotfiles have been updated!
+
+Please reload your shell with this command:
+
+    exec $SHELL
+
+******
+
+EOF
+fi

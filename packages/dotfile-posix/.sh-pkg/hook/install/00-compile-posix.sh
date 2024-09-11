@@ -15,6 +15,6 @@ while IFS="" read -r envscript; do
     echo
     echo "# $envscript"
     cat "$envscript"
-done >>"$ENVSH_TMP" < <(sh-pkg helper find shell=any-posix -- "$HOME/.sh-pkg/env.d/" -type f | sort)
+done >>"$ENVSH_TMP" < <("$HOME/bin/sh-pkg" helper find shell=any-posix -- "$HOME/.sh-pkg/env.d/" -type f | sort)
 
 mv "$ENVSH_TMP" "$ENVSH"
