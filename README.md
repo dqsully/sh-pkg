@@ -10,9 +10,9 @@ First, make sure `git` is installed, then run:
 curl https://raw.githubusercontent.com/dqsully/sh-pkg/main/install.sh | bash -
 ```
 
-This will add the `std` remote source pointing to this repository, as well as install the `std/sh-pkg` package, which puts the `sh-pkg` executable in the `~/bin` directory.
+This will add the `std` remote source pointing to this repository, as well as install the `std/sh-pkg` package, which puts the `sh-pkg` executable in the `~/bin` directory. Note: **until you install a `dotfile-*` package, the `sh-pkg` executable may not be in your PATH.**
 
-To update your dotfiles (only Bash and Zsh are currently supported) to work with sh-pkg packages, run:
+To update your shell dotfiles (only Bash and Zsh are currently supported) to work with sh-pkg packages, run:
 
 ```bash
 ~/bin/sh-pkg install dotfile-bash dotfile-zsh
