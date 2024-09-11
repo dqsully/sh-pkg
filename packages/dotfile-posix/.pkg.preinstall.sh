@@ -2,6 +2,7 @@
 
 if [[ -f "$HOME/.profile" ]]; then
     echo "Moving $HOME/.profile to $HOME/.sh-pkg/env.d/00-user-profile.sh"
+    mkdir -p "$HOME/.sh-pkg/env.d"
     {
         # shellcheck disable=SC2016
         echo '# sh-pkg:shell any-posix'
