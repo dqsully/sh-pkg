@@ -1,13 +1,27 @@
 #!/bin/bash
 
-canpick="true"
+can_pick="true"
+allow_files="false"
 
 if [[ ! -t 0 ]]; then
-    canpick="false"
-elif [[ "$1" == "-f" ]]; then
-    canpick="false"
-    shift
+    can_pick="false"
 fi
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -f)
+            allow_files="true"
+            shift
+            ;;
+        -n)
+            can_pick="false"
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 search="$1"
 
@@ -30,7 +44,11 @@ while IFS="" read -r projline; do
         searchdir="$HOME/$searchdir"
     fi
 
-    readarray -t projoptions -d '' < <(find "$searchdir" -maxdepth ${projparts[2]} -mindepth ${projparts[1]} -type d -a -path "**/$search" | sort)
+    if [[ "$allow_files" == "false" ]]; then
+        readarray -t projoptions -d '' < <(find "$searchdir" -maxdepth ${projparts[2]} -mindepth ${projparts[1]} -type d -a -path "**/$search" | sort)
+    else
+        readarray -t projoptions -d '' < <(find "$searchdir" -maxdepth ${projparts[2]} -mindepth ${projparts[1]} -a -path "**/$search" | sort)
+    fi
     possible_dirs=("${possible_dirs[@]}" "${projoptions[@]}")
 done <"$HOME/.sh-pkg/db/projects"
 
@@ -57,7 +75,7 @@ done
 if [[ "${#deduped_dirs[@]}" -eq 0 ]]; then
     echo "No project dirs matched search '$search', maybe edit '~/.projects' file to add a project dir?" >&2
     exit 1
-elif [[ "${#deduped_dirs[@]}" -eq 1 ]] || [[ "$canpick" == "false" ]]; then
+elif [[ "${#deduped_dirs[@]}" -eq 1 ]] || [[ "$can_pick" == "false" ]]; then
     # there's only one option, or stdin is not a TTY so we couldn't pick anyways
     echo "${visited[${deduped_dirs[0]}]}"
     exit 0
