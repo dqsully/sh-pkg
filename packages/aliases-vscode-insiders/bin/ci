@@ -5,9 +5,16 @@ ARGS=()
 if [[ "$1" == "-n" ]] || [[ "${#@}" -eq 0 ]]; then
   ARGS=("$@")
 elif [[ "$1" = ./* ]] || [[ "$1" == "." ]]; then
-  ARGS=("--" "$@")
+  rp="$(realpath "$1")"
+  shift
+
+  if [[ -f "$rp.code-workspace" ]]; then
+    ARGS=("--" "$rp.code-workspace" "$@")
+  else
+    ARGS=("--" "$rp" "$@")
+  fi
 else
-  dir="$(fp -f "$1.code-workspace")"
+  dir="$(fp -f "$1.code-workspace" 2>/dev/null)"
   if [[ -z "$dir" ]]; then
     dir="$(fp "$1")"
   fi
