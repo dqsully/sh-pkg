@@ -1,0 +1,20 @@
+#!/bin/bash
+
+session_file="/tmp/$USER/bitwarden.session"
+
+if [[ -f "$session_file" ]]; then
+    if BITWARDEN_SESSION="$(cat "$session_file")" bw unlock --check 2>/dev/null; then
+        exit 0
+    fi
+fi
+
+# TODO: support more terminal apps, detect which one to use
+session_key="$(bw unlock --raw)"
+result="$?"
+if [[ $result -ne 0 || -z "$session_key" ]]; then
+    echo "Failed to unlock Bitwarden session"
+    exit $result
+fi
+
+mkdir -p "$(dirname "$session_file")"
+echo "$session_key" >"$session_file"
