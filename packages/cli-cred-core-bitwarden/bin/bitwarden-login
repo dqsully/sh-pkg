@@ -3,7 +3,7 @@
 session_file="/tmp/$USER/bitwarden.session"
 
 if [[ -f "$session_file" ]]; then
-    if BITWARDEN_SESSION="$(cat "$session_file")" bw unlock --check 2>/dev/null; then
+    if BW_SESSION="$(cat "$session_file")" bw unlock --check 2>/dev/null; then
         exit 0
     fi
 fi
