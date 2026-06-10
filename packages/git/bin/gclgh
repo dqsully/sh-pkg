@@ -3,7 +3,9 @@
 gitpath="$1"
 shift
 
-localpath="$HOME/github/$gitpath"
+GITHUB_DIR="${GITHUB_DIR:-github}"
+
+localpath="$HOME/$GITHUB_DIR/$gitpath"
 if [[ -n "$1" ]] && [[ ! "$1" =~ ^-.* ]]; then
     localpath="$1"
     shift
